@@ -1,0 +1,113 @@
+name: Update lottery archive (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      game:
+        description: One of at, de, euromillions, or eurojackpot.
+        required: true
+        type: string
+      init:
+        description: Import the complete available history.
+        default: false
+        required: false
+        type: boolean
+    secrets:
+      APP_PRIVATE_KEY:
+        description: Optional GitHub App key, used with the APP_CLIENT_ID variable.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    # A manually selected feature branch must never write the default branch.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    # All four games share one writer queue. queue:max preserves pending
+    # updates when several schedules or historical imports overlap.
+    concurrency:
+      group: lottery-results-write
+      cancel-in-progress: false
+      queue: max
+    env:
+      GAME: ${{ inputs.game }}
+      FULL_HISTORY: ${{ inputs.init }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+    steps:
+      - name: Generate optional GitHub App token
+        id: app-token
+        if: vars.APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Checkout current default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || github.token }}
+
+      - name: Install project
+        uses: ./.github/actions/setup-project
+
+      - name: Select game
+        id: game
+        shell: bash
+        run: |
+          case "$GAME" in
+            at) script=scripts/fetch_lotto_at_6aus45.py ;;
+            de) script=scripts/fetch_lotto_de_6aus49.py ;;
+            euromillions) script=scripts/fetch_euromillions.py ;;
+            eurojackpot) script=scripts/fetch_eurojackpot.py ;;
+            *) echo "Unsupported game: $GAME" >&2; exit 1 ;;
+          esac
+          printf 'script=%s\n' "$script" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch and commit results
+        env:
+          FETCH_SCRIPT: ${{ steps.game.outputs.script }}
+        shell: bash
+        run: |
+          args=(--commit)
+          if [ "$FULL_HISTORY" = "true" ]; then
+            args+=(--init)
+          fi
+          uv run --locked python "$FETCH_SCRIPT" "${args[@]}"
+
+      - name: Validate results and freshness
+        run: uv run --locked python scripts/check_integrity.py --game "$GAME"
+
+      - name: Push results safely
+        shell: bash
+        run: |
+          if [ "$(git rev-list --count "origin/$DEFAULT_BRANCH..HEAD")" = "0" ]; then
+            echo "No new commits to push."
+            exit 0
+          fi
+          # Account for a maintainer pushing while the source was fetched.
+          # Conflicts fail this run; existing remote history is never replaced.
+          for attempt in 1 2 3; do
+            git fetch origin "$DEFAULT_BRANCH"
+            git rebase "origin/$DEFAULT_BRANCH"
+            uv run --locked python scripts/check_integrity.py --game "$GAME"
+            if git push origin "HEAD:$DEFAULT_BRANCH"; then
+              exit 0
+            fi
+            echo "Push attempt $attempt failed; retrying against the current branch."
+          done
+          echo "Could not push after three attempts." >&2
+          exit 1

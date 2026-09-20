@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+*.env
+
+# Logs
+*.log
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local tooling and operating-system metadata
+.uv-cache/
+.ruff_cache/
+.DS_Store
+__MACOSX/
+._*
+
+# Downloadable copies are generated from the canonical archives
+public/at/
+public/de/
+public/eu/

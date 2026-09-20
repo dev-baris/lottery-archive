@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lottery Archive – Letzte Ziehungen</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    header.page-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header.page-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #f8fafc;
+    }
+
+    header.page-header p {
+      margin-top: 0.5rem;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+      gap: 1.5rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 1rem;
+      padding: 1.5rem;
+    }
+
+    .card header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .flag { font-size: 1.6rem; line-height: 1; }
+
+    .card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .draw-date {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-bottom: 1.1rem;
+    }
+
+    .balls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .ball {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.6rem;
+      height: 2.6rem;
+      border-radius: 50%;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .ball.main {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .ball.bonus-red {
+      background: #dc2626;
+      color: #fff;
+    }
+
+    .ball.bonus-eu {
+      background: #f59e0b;
+      color: #1e293b;
+    }
+
+    .separator {
+      color: #94a3b8;
+      font-weight: 700;
+      font-size: 1.2rem;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: #94a3b8;
+      font-size: 0.8rem;
+    }
+
+    a {
+      color: #60a5fa;
+      text-underline-offset: 0.15em;
+    }
+
+    .archive-link { margin-top: 1.25rem; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Lottery Archive</h1>
+    <p>Letzte archivierte Ziehungsergebnisse</p>
+  </header>
+
+  <main class="grid">
+    
+    <article class="card" id="at">
+      <header>
+        <span class="flag" aria-hidden="true">🇦🇹</span>
+        <h2>Lotto 6 aus 45</h2>
+      </header>
+      <p class="draw-date">Ziehung vom <time datetime="2026-09-18">18.09.2026</time></p>
+      <div class="balls">
+        <span class="ball main">5</span><span class="ball main">6</span><span class="ball main">12</span><span class="ball main">35</span><span class="ball main">38</span><span class="ball main">39</span>
+        <span class='separator'>+</span><span class="ball bonus-red" title="Zusatzzahl" aria-label="Zusatzzahl 8">8</span>
+      </div>
+      <p class="archive-link"><a href="at/lotto_6aus45/results.csv" download>Ziehungen ab 2000 als CSV</a></p>
+    </article>
+
+    <article class="card" id="de">
+      <header>
+        <span class="flag" aria-hidden="true">🇩🇪</span>
+        <h2>Lotto 6 aus 49</h2>
+      </header>
+      <p class="draw-date">Ziehung vom <time datetime="2026-09-19">19.09.2026</time></p>
+      <div class="balls">
+        <span class="ball main">14</span><span class="ball main">15</span><span class="ball main">29</span><span class="ball main">32</span><span class="ball main">34</span><span class="ball main">40</span>
+        <span class='separator'>+</span><span class="ball bonus-red" title="Superzahl" aria-label="Superzahl 9">9</span>
+      </div>
+      <p class="archive-link"><a href="de/lotto_6aus49/results.csv" download>Ziehungen ab 2000 als CSV</a></p>
+    </article>
+
+    <article class="card" id="eu">
+      <header>
+        <span class="flag" aria-hidden="true">🇪🇺</span>
+        <h2>Euromillionen</h2>
+      </header>
+      <p class="draw-date">Ziehung vom <time datetime="2026-09-18">18.09.2026</time></p>
+      <div class="balls">
+        <span class="ball main">8</span><span class="ball main">17</span><span class="ball main">25</span><span class="ball main">30</span><span class="ball main">44</span>
+        <span class='separator'>+</span><span class="ball bonus-eu" title="Lucky Star" aria-label="Lucky Star 2">2</span><span class="ball bonus-eu" title="Lucky Star" aria-label="Lucky Star 3">3</span>
+      </div>
+      <p class="archive-link"><a href="eu/euromillions/results.csv" download>Alle Ziehungen als CSV</a></p>
+    </article>
+
+    <article class="card" id="eurojackpot">
+      <header>
+        <span class="flag" aria-hidden="true">🇪🇺</span>
+        <h2>Eurojackpot</h2>
+      </header>
+      <p class="draw-date">Ziehung vom <time datetime="2026-09-18">18.09.2026</time></p>
+      <div class="balls">
+        <span class="ball main">4</span><span class="ball main">25</span><span class="ball main">30</span><span class="ball main">32</span><span class="ball main">33</span>
+        <span class='separator'>+</span><span class="ball bonus-eu" title="Eurozahl" aria-label="Eurozahl 4">4</span><span class="ball bonus-eu" title="Eurozahl" aria-label="Eurozahl 5">5</span>
+      </div>
+      <p class="archive-link"><a href="eu/eurojackpot/results.csv" download>Alle Ziehungen als CSV</a></p>
+    </article>
+  </main>
+
+  <footer>
+    <p>Aktualisiert: 20.09.2026 08:27 UTC</p>
+  </footer>
+</body>
+</html>

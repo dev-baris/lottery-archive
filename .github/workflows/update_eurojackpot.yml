@@ -1,0 +1,27 @@
+name: Update EU Eurojackpot
+
+on:
+  schedule:
+    # Eurojackpot: Tuesday and Friday; allow time for result publication. All cron times are UTC.
+    - cron: "37 21 * * 2,5"
+  workflow_dispatch:
+    inputs:
+      init:
+        description: "Full historical import (2012 to the current year)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_update_lottery.yml
+    with:
+      game: eurojackpot
+      init: ${{ inputs.init || false }}
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

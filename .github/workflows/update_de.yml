@@ -1,0 +1,27 @@
+name: Update DE Lotto 6 aus 49
+
+on:
+  schedule:
+    # Germany: Wednesday and Saturday. All cron times are UTC.
+    - cron: "37 20 * * 3,6"
+  workflow_dispatch:
+    inputs:
+      init:
+        description: "Full archive import (2000 to the current year)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_update_lottery.yml
+    with:
+      game: de
+      init: ${{ inputs.init || false }}
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

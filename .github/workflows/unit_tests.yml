@@ -1,0 +1,52 @@
+name: Unit Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install project
+        uses: ./.github/actions/setup-project
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Check installed dependencies
+        run: uv pip check --python .venv/bin/python
+
+      - name: Run offline test suite
+        run: uv run --locked python -m unittest discover -s tests -v
+
+      - name: Check all archived data
+        # Repository snapshots remain valid between draw days. Scheduled
+        # updates enforce freshness separately, including unchanged files.
+        run: uv run --locked python scripts/check_integrity.py --skip-stale
+
+      - name: Generate the public page
+        run: uv run --locked python scripts/generate_page.py
+
+      - name: Verify package build
+        if: matrix.python-version == '3.14'
+        run: uv build
