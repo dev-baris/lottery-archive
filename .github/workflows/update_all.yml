@@ -1,0 +1,34 @@
+name: Update All CSVs
+
+on:
+  schedule:
+    # Daily catch-up for delayed source publication. All cron times are UTC.
+    - cron: "47 7 * * *"
+  workflow_dispatch:
+    inputs:
+      init:
+        description: "Full history: AT/DE from 2000, EuroMillions from 2004, Eurojackpot from 2012"
+        required: false
+        default: false
+        type: boolean
+      push_changes:
+        description: "Commit and push updated CSVs (uncheck to test without pushing)"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_update_lottery.yml
+    with:
+      game: all
+      init: ${{ inputs.init || false }}
+      # Scheduled events have no inputs. An explicit manual false must stay false.
+      push_changes: ${{ github.event_name != 'workflow_dispatch' || inputs.push_changes }}
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

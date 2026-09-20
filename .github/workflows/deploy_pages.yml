@@ -10,6 +10,7 @@ on:
       - Update DE Lotto 6 aus 49
       - Update EU EuroMillions
       - Update EU Eurojackpot
+      - Update All CSVs
     types: [completed]
   workflow_dispatch:
 

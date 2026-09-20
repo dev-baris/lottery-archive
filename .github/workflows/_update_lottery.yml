@@ -4,12 +4,17 @@ on:
   workflow_call:
     inputs:
       game:
-        description: One of at, de, euromillions, or eurojackpot.
+        description: One of at, de, euromillions, eurojackpot, or all.
         required: true
         type: string
       init:
-        description: Import the complete available history.
+        description: Import the complete supported history for the selected archives.
         default: false
+        required: false
+        type: boolean
+      push_changes:
+        description: Commit and push changes; false fetches and validates without publishing.
+        default: true
         required: false
         type: boolean
     secrets:
@@ -28,8 +33,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
-    # All four games share one writer queue. queue:max preserves pending
-    # updates when several schedules or historical imports overlap.
+    # Single-game and all-game runs share one writer queue. queue:max preserves
+    # pending updates when schedules, manual runs, or historical imports overlap.
     concurrency:
       group: lottery-results-write
       cancel-in-progress: false
@@ -37,12 +42,13 @@ jobs:
     env:
       GAME: ${{ inputs.game }}
       FULL_HISTORY: ${{ inputs.init }}
+      PUSH_CHANGES: ${{ inputs.push_changes }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
     steps:
       - name: Generate optional GitHub App token
         id: app-token
-        if: vars.APP_CLIENT_ID != ''
+        if: inputs.push_changes && vars.APP_CLIENT_ID != ''
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
@@ -55,6 +61,11 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token || github.token }}
+          persist-credentials: ${{ inputs.push_changes }}
+
+      - name: Record starting revision
+        id: baseline
+        run: printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Install project
         uses: ./.github/actions/setup-project
@@ -68,46 +79,99 @@ jobs:
             de) script=scripts/fetch_lotto_de_6aus49.py ;;
             euromillions) script=scripts/fetch_euromillions.py ;;
             eurojackpot) script=scripts/fetch_eurojackpot.py ;;
+            all) script=scripts/update_all.py ;;
             *) echo "Unsupported game: $GAME" >&2; exit 1 ;;
           esac
           printf 'script=%s\n' "$script" >> "$GITHUB_OUTPUT"
 
+      - name: Run all unit tests
+        if: inputs.game == 'all'
+        run: uv run --locked python -m unittest discover -s tests
+
       - name: Configure git identity
+        if: inputs.push_changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch and commit results
+      - name: Fetch results
         env:
           FETCH_SCRIPT: ${{ steps.game.outputs.script }}
         shell: bash
         run: |
-          args=(--commit)
+          args=()
+          if [ "$PUSH_CHANGES" = "true" ]; then
+            args+=(--commit)
+          fi
           if [ "$FULL_HISTORY" = "true" ]; then
             args+=(--init)
           fi
           uv run --locked python "$FETCH_SCRIPT" "${args[@]}"
 
       - name: Validate results and freshness
-        run: uv run --locked python scripts/check_integrity.py --game "$GAME"
+        shell: bash
+        run: |
+          args=()
+          if [ "$GAME" != "all" ]; then
+            args+=(--game "$GAME")
+          fi
+          uv run --locked python scripts/check_integrity.py "${args[@]}"
 
       - name: Push results safely
+        id: push
+        if: inputs.push_changes
         shell: bash
         run: |
           if [ "$(git rev-list --count "origin/$DEFAULT_BRANCH..HEAD")" = "0" ]; then
             echo "No new commits to push."
+            echo "result=no_changes" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          args=()
+          if [ "$GAME" != "all" ]; then
+            args+=(--game "$GAME")
           fi
           # Account for a maintainer pushing while the source was fetched.
           # Conflicts fail this run; existing remote history is never replaced.
           for attempt in 1 2 3; do
             git fetch origin "$DEFAULT_BRANCH"
             git rebase "origin/$DEFAULT_BRANCH"
-            uv run --locked python scripts/check_integrity.py --game "$GAME"
+            uv run --locked python scripts/check_integrity.py "${args[@]}"
             if git push origin "HEAD:$DEFAULT_BRANCH"; then
+              echo "result=pushed" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "Push attempt $attempt failed; retrying against the current branch."
           done
           echo "Could not push after three attempts." >&2
           exit 1
+
+      - name: Summarize update
+        if: always()
+        env:
+          UPDATE_STATUS: ${{ job.status }}
+          START_REVISION: ${{ steps.baseline.outputs.sha }}
+          PUSH_RESULT: ${{ steps.push.outputs.result }}
+        shell: bash
+        run: |
+          {
+            printf '## Lottery archive update\n\n'
+            printf 'Selected archives: `%s`  \n' "$GAME"
+            printf 'Full historical import: `%s`\n\n' "$FULL_HISTORY"
+            if [ "$UPDATE_STATUS" != "success" ]; then
+              echo "Update failed or was cancelled. Review the failed step's logs before retrying."
+            elif [ "$PUSH_CHANGES" != "true" ]; then
+              echo "Test completed successfully: fetched results and validated all selected CSVs. No commits or pushes were made."
+            elif [ "$PUSH_RESULT" = "no_changes" ]; then
+              echo "All selected CSVs are current. Nothing changed, so no commit or push was needed."
+            else
+              echo "Update completed successfully. Validated CSV changes were pushed to the default branch."
+            fi
+            if [ -n "$START_REVISION" ] && [ "$UPDATE_STATUS" = "success" ]; then
+              printf '\nChanges to archive CSVs since checkout:\n\n```text\n'
+              git diff --stat "$START_REVISION" -- \
+                at/lotto_6aus45/results.csv de/lotto_6aus49/results.csv \
+                eu/euromillions/results.csv eu/eurojackpot/results.csv
+              printf '```\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

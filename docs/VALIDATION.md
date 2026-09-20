@@ -1,21 +1,40 @@
 # Validation and release record
 
-Verified on **2026-09-20** for project version **1.2.0**.
+Verified on **2026-09-20** for project version **1.3.0**.
+
+This release adds the scheduled and manually dispatched **Update All CSVs**
+workflow. Collector implementations, test files, and all four canonical CSVs
+remain unchanged from the uploaded version 1.2.0 project.
 
 ## Test results
 
 | Python | Tests | Result |
 | --- | ---: | --- |
 | 3.11.16 | 346 | Passed |
-| 3.12.14 | 346 | Passed |
-| 3.13.15 | 346 | Passed |
 | 3.14.7 | 346 | Passed |
 
-The four runs use the verified current dependency versions. Python 3.11, 3.13, and 3.14 use isolated environments originally installed from `uv.lock`; Python 3.12 uses the same package versions through an editable pip installation. Version 1.2.0 was installed successfully with `uv sync --locked --offline` on Python 3.14. The refreshed lock passed `uv lock --check --offline`, dependency compatibility checks passed, and the version 1.2.0 source/wheel build succeeded. The tests are offline; live checks are recorded separately below. This script-based project is distributed as the complete project ZIP, including its collectors, data, and workflows.
+The oldest and newest supported Python versions were rerun for version 1.3.0
+using the unchanged locked dependencies. The same suite also passed on Python
+3.12.14 and 3.13.15 during the preceding version 1.2.0 verification. Version
+1.3.0 was installed successfully with `uv sync --locked --offline` on Python
+3.14; `uv lock --check --offline` and the source/wheel build passed. The tests
+are offline; live checks are recorded separately below. This script-based
+project is distributed as the complete project ZIP, including its collectors,
+data, and workflows.
 
-The original supplied suite had 157 passing tests; version 1.1.0 had 310. Version 1.2.0 adds 36 regression tests covering the inclusive 2000 cutoff, initialization and recovery bounds, rejection of out-of-scope CSV reads/writes without replacing the original file, German Superzahl requirements, Germany's historical draw calendar, and rejection of pre-2000 data before public page generation. Previous coverage for source formats, Eurojackpot, historical number limits, HTTP handling, Git commits, and the combined updater remains in the full suite.
+The original supplied suite had 157 passing tests; version 1.1.0 had 310. Version 1.2.0 added 36 regression tests covering the inclusive 2000 cutoff, initialization and recovery bounds, rejection of out-of-scope CSV reads/writes without replacing the original file, German Superzahl requirements, Germany's historical draw calendar, and rejection of pre-2000 data before public page generation. Previous coverage for source formats, Eurojackpot, historical number limits, HTTP handling, Git commits, and the combined updater remains in the full suite.
 
-## Version 1.2.0 source and data checks
+## Version 1.3.0 live update and data checks
+
+- Ran `scripts/update_all.py` successfully against all four live sources. Every collector reported no new draws; no source or stored draw data was fabricated for testing.
+- Checked all four CSVs with the production integrity checker, including freshness, supported date ranges, number limits, ordering, duplicates, and the configured historical calendars. All passed.
+- Compared the four canonical CSVs byte for byte with the uploaded project: all are unchanged. Austrian and German Lotto still begin in 2000; the complete existing EuroMillions and Eurojackpot histories are retained.
+- Regenerated `public/index.html` and the four public CSV copies. Every download copy matches its canonical CSV exactly.
+
+## Retained version 1.2.0 source and data checks
+
+The following source comparisons and cutoff checks were performed for version
+1.2.0. Its archived data and collector code are retained in this release.
 
 - Removed **814 Austrian** and **2,307 German** records dated before 2000. Compared each retained row, field by field, with the version 1.1.0 project ZIP: **zero changed dates or numbers**. Both European CSVs are byte-identical to version 1.1.0.
 - Reparsed the two previously downloaded official Austrian historical files through the updated strict parser: **1,114** retained draws from 2000-01-02 through 2010-09-05 and **764** from 2010-09-08 through 2017-12-31. All **1,878** records match the current archive exactly; all pre-2000 source sections are excluded.
@@ -27,7 +46,7 @@ The original supplied suite had 157 passing tests; version 1.1.0 had 310. Versio
 ## Retained version 1.1.0 source verification
 
 The following checks were performed during the preceding update on the same
-date. Their repaired European data remains unchanged in version 1.2.0; they are
+date. Their repaired European data remains unchanged in version 1.3.0; they are
 recorded here as prior evidence, not additional full imports for this release.
 
 - Imported every Eurojackpot annual archive from 2012 to 2026 through the supplied URLs: **991 draws**, from **2012-03-23** to **2026-09-18**. All completed years are complete; 2026 contains the 75 draws published through September 18.
@@ -66,14 +85,27 @@ recorded here as prior evidence, not additional full imports for this release.
 
 ## Workflow validation
 
-Action/dependency pins and push behavior were verified in version 1.1.0 and are
-retained. Version 1.2.0 updates the AT/DE manual import descriptions to start at
-2000; actionlint and public artifact checks were rerun after those changes.
+Action and dependency pins verified during the preceding updates are retained.
+Version 1.3.0 adds `update_all.yml`, extends `_update_lottery.yml`, and includes
+the new workflow in `deploy_pages.yml`. The four individual collection schedules
+remain unchanged. Workflow lint and public artifact checks were rerun.
 
 - Every external action is pinned to a verified full commit SHA; action inputs were compared with each pinned upstream `action.yml`.
-- All 11 workflow/action/Dependabot YAML files parse correctly.
+- All 12 workflow/action/Dependabot YAML files parse correctly.
 - **actionlint 1.7.12** passed with local reusable/composite actions resolved, excluding only its unsupported `concurrency.queue` diagnostic. GitHub [officially documents `queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency); that linter release predates the field.
-- Ran the reusable workflow's push-step shell against disposable Git repositories: concurrent changes to another file survive rebase/push; reruns become no-ops; same-file conflicts fail without replacing remote history.
+- Passed **11 local workflow integration scenarios** against the actual reusable workflow Bash and the production `update_all.py`, `git_utils.py`, and integrity checker. Disposable bare Git remotes used a default branch named `trunk`, verifying that pushes do not assume `main`.
+- A normal all-game update created exactly four commits changing only the four canonical CSV paths, excluded an unrelated untracked file, and passed real integrity checks before pushing and after rebasing. An unchanged run created no commits or pushes.
+- Incremental and full-history test runs with `push_changes=false` fetched all four archives and ran real validation, with no commits or remote changes. Injected unit-test, collector, and validator failures prevented publication; a failed collector still allowed the remaining games to be attempted.
+- A concurrent maintainer edit to `README.md` survived rebase and push. A conflicting edit to the same CSV stopped publication and preserved the maintainer's remote history. An invalid game input stopped before collection.
+- Inspected and simulated the default-branch condition and typed input routing: feature-branch dispatches skip the job, schedules enable pushing, and an explicitly unchecked manual `push_changes` remains false. Pages includes the new workflow while retaining its trusted default-branch checkout.
+
+The Git integration harness replaced HTTP collectors and the unit-test step
+with deterministic fixtures/failure injection; it ran the real updater,
+integrity checker, shell steps, and Git operations. The full unit suite and
+real-source updater were executed separately as recorded above. Hosted
+scheduling and conditional step gating were checked through documentation,
+workflow lint, and local simulation.
+
 - An independent workflow/dependency review found no further concrete defects.
 - Generated the public page and checked that all four relative download links resolve to byte-identical copies of their canonical CSVs.
 
